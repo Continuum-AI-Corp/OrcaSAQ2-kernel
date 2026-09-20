@@ -101,9 +101,44 @@ Most of it is model-agnostic:
 For a new dense architecture that is a list of layer names. Mixture-of-experts needs extra
 work on the expert weights; the kernel and the quantization logic still do not change.
 
+## Deployed in vLLM
+
+The rotation runs in production through a `vllm.general_plugins` entry point
+(`bonsai-quant/scripts/orca_rotate`), which is the only hook that reaches vLLM's EngineCore and
+worker processes. Each layer's sign vector is resolved once in `process_weights_after_loading`
+and parked on the layer; `apply()` then calls a `torch.library` custom op wrapping this kernel,
+so the forward stays `fullgraph`-compilable and CUDA-graph-capturable (verified bit-identical to
+eager). vLLM picks the Machete 4-bit kernel on Hopper. Serving fidelity against the pack's own
+bytes: mean |Δ log p| = 0.022 nat over 6k tokens, for both the stock and the abliterated pack.
+
+## What the rotation costs in a real decode step
+
+Measured on the live deployment (400 rotated layers, batch 1, H200):
+
+| | per token |
+|---|---|
+| rotation, eager (mul + Hadamard per layer, 800 launches) | 7.04 ms |
+| rotation, inside a CUDA graph | **3.69 ms** |
+| reading all 4-bit weights at 4.8 TB/s (the matmul floor) | 2.67 ms |
+| whole decode step as served | ~21 ms (47 tok/s) |
+
+So at batch 1 the rotation costs more than the entire 4-bit weight read, and ~17 ms of the
+step is neither: the GDN recurrent kernels, attention, sampling and framework overhead of this
+hybrid architecture, which bf16 pays identically. Quantization can only shrink the matmul
+share, which is why the batch-1 gain is ~1.3× as deployed and would be ~1.6× with the rotation
+made free; at batch 32+ the matmul share grows and so does the gap.
+
 ## The obvious next improvement
 
-The rotation currently costs a separate kernel launch, ~13 µs, which is roughly half of
-what 4-bit buys back at small batch. Fusing it into the GPTQ dequant kernel would make it
-close to free and should take the speedup from ~1.5× toward ~2.5×. That is what PrismML
-appear to have done in their llama.cpp and MLX forks.
+Two steps, both pack-time or kernel-level, neither touching the quantized integers:
+
+1. **Fold the sign vector away** (removes 400 elementwise launches). For inputs that come out of
+   an RMSNorm (`qkv_proj`, `gate_up_proj`, `in_proj_qkvz`) fold `s` into the norm weight γ.
+   For `down_proj`, fold `s` into `up_proj`'s output rows (quantize `-w` for flipped rows at pack
+   time; the uint4b8 grid is not sign-symmetric, so re-quantize rather than negate codes). For
+   `o_proj`, fold into `v_proj`'s output rows -- attention mixes positions, not channels, so
+   `attn(V·s) = attn(V)·s`. For the GDN `out_proj`, flip the matching columns of the delta-rule
+   state and fold into the gated norm's γ.
+2. **Fuse the Hadamard into the preceding RMSNorm kernel** for the norm-fed inputs, as QuaRot
+   does; `o_proj` / `out_proj` / `down_proj` keep a standalone transform. That leaves ~200
+   launches per token, inside the graph, i.e. under 1 ms.
