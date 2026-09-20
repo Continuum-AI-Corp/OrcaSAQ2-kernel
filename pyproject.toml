@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orcasaq2-kernel"
+version = "0.1.0"
+description = "OrcaSAQ2 runtime for vLLM: applies the Hadamard rotation to quantized-layer inputs with the Dao-AILab CUDA kernel"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+dependencies = ["torch"]
+
+[project.urls]
+Homepage = "https://github.com/Continuum-AI-Corp/OrcaSAQ2-kernel"
+
+# vLLM imports this in every engine / worker process (vllm.plugins.load_general_plugins)
+[project.entry-points."vllm.general_plugins"]
+orca_rotate = "orca_rotate:register"
+
+[tool.setuptools]
+packages = ["orca_rotate"]

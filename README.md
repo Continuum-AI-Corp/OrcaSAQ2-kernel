@@ -103,13 +103,28 @@ work on the expert weights; the kernel and the quantization logic still do not c
 
 ## Deployed in vLLM
 
-The rotation runs in production through a `vllm.general_plugins` entry point
-(`bonsai-quant/scripts/orca_rotate`), which is the only hook that reaches vLLM's EngineCore and
+The rotation runs in production through the `orca_rotate/` package in this repo -- a
+`vllm.general_plugins` entry point, which is the only hook that reaches vLLM's EngineCore and
 worker processes. Each layer's sign vector is resolved once in `process_weights_after_loading`
 and parked on the layer; `apply()` then calls a `torch.library` custom op wrapping this kernel,
 so the forward stays `fullgraph`-compilable and CUDA-graph-capturable (verified bit-identical to
 eager). vLLM picks the Machete 4-bit kernel on Hopper. Serving fidelity against the pack's own
 bytes: mean |Δ log p| = 0.022 nat over 6k tokens, for both the stock and the abliterated pack.
+
+```bash
+pip install vllm
+pip install git+https://github.com/Dao-AILab/fast-hadamard-transform   # the CUDA kernel
+pip install git+https://github.com/Continuum-AI-Corp/OrcaSAQ2-kernel   # this plugin
+
+ORCA_ROTATE_SIGNS=/path/to/OrcaSAQ2-27B/hadamard_signs.pt \
+vllm serve /path/to/OrcaSAQ2-27B --reasoning-parser qwen3 \
+  --enable-auto-tool-choice --tool-call-parser qwen3_xml \
+  --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
+```
+
+The plugin is dormant unless `ORCA_ROTATE_SIGNS` is set, so the same environment serves
+unrotated models untouched. Packs: [`orcarouter/OrcaSAQ2-27B`](https://huggingface.co/orcarouter/OrcaSAQ2-27B),
+[`orcarouter/OrcaSAQ2-27B-Uncensored`](https://huggingface.co/orcarouter/OrcaSAQ2-27B-Uncensored).
 
 ## What the rotation costs in a real decode step
 

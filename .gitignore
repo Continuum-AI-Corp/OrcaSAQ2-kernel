@@ -1,5 +1,7 @@
-__pycache__/
-*.pyc
-*.safetensors
-*.pt
+build/
+*.egg-info/
 out/
+*.pt
+*.pyc
+__pycache__/
+*.safetensors
