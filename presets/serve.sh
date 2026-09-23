@@ -39,5 +39,11 @@ ARGS=(--model "$MODEL" --served-model-name "$NAME" --port "$PORT" --host "${BIND
 [ -n "${MAMBA_BLOCK:-}" ] && ARGS+=(--mamba-block-size "$MAMBA_BLOCK")
 [ -n "${BLOCK_SIZE:-}" ] && ARGS+=(--block-size "$BLOCK_SIZE")
 [ -n "${API_KEY:-}" ] && ARGS+=(--api-key "$API_KEY")
+[ -n "${REASONING_PARSER:-}" ] && ARGS+=(--reasoning-parser "$REASONING_PARSER")
+# Tool calling has to be switched on explicitly: --tool-call-parser alone is inert without
+# --enable-auto-tool-choice, so they are one knob here rather than two. The parser must match
+# what the chat template emits -- this model's template writes the Qwen3 XML form
+# (<tool_call><function=..><parameter=..>), which is qwen3_xml, not the JSON-in-tag hermes form.
+[ -n "${TOOL_PARSER:-}" ] && ARGS+=(--enable-auto-tool-choice --tool-call-parser "$TOOL_PARSER")
 echo "+ vllm ${ARGS[*]} ${EXTRA:-}"
 exec ./.venv-vllm/bin/python -m vllm.entrypoints.openai.api_server "${ARGS[@]}" ${EXTRA:-}

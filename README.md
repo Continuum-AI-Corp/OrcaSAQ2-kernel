@@ -38,6 +38,22 @@ a host with a public IP means an unauthenticated inference endpoint on the open 
 moment the server starts. Exposing it is `BIND=0.0.0.0`, and you should set `API_KEY` and a
 firewall whitelist first.
 
+### Reasoning and tool calling
+
+The presets turn both parsers on:
+
+```
+REASONING_PARSER=qwen3     # -> --reasoning-parser qwen3
+TOOL_PARSER=qwen3_xml      # -> --enable-auto-tool-choice --tool-call-parser qwen3_xml
+```
+
+Without the reasoning parser the thinking block arrives inside `content` and every harness has
+to strip it; with it, it comes back in a separate `reasoning` field. `--tool-call-parser` is
+inert on its own, so `TOOL_PARSER` sets `--enable-auto-tool-choice` with it. Use **qwen3_xml**,
+not `hermes`: this model's chat template emits the XML form,
+`<tool_call><function=name><parameter=k>v</parameter></function></tool_call>`, and the hermes
+parser expects JSON inside the tag, so it would silently return the call as plain text.
+
 ## exllamav3 (native)
 
 Lighter than vLLM — no paged-KV manager, no torch.compile — and the better choice for a single

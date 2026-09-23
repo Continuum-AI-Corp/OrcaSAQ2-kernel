@@ -13,6 +13,10 @@
 #                  roughly +40 ms/token per GB at PCIe 4.0 x16.
 #   KV_OFFLOAD_GB  three-tier GPU/CPU/disk KV via LMCache. Helps many sessions or long reusable
 #                  prefixes; does NOT shrink one sequence's active attention window.
+#   REASONING_PARSER  e.g. qwen3 — splits the thinking block out of `content`
+#   TOOL_PARSER    e.g. qwen3_xml — also sets --enable-auto-tool-choice, which the
+#                  parser flag is inert without. Must match what the chat template
+#                  emits: Qwen3.5 writes the XML form, so qwen3_xml, not hermes.
 #   EXTRA          anything else appended verbatim
 set -euo pipefail
 
@@ -37,6 +41,8 @@ ARGS=(--model "${MODEL:-/model}" --served-model-name "${SERVED_NAME:-exl3}"
 [ -n "${CPU_OFFLOAD_GB:-}" ] && ARGS+=(--cpu-offload-gb "$CPU_OFFLOAD_GB")
 [ -n "${KV_OFFLOAD_GB:-}" ] && ARGS+=(--kv-offloading-size "$KV_OFFLOAD_GB" --kv-offloading-backend lmcache)
 [ -n "${API_KEY:-}" ] && ARGS+=(--api-key "$API_KEY")
+[ -n "${REASONING_PARSER:-}" ] && ARGS+=(--reasoning-parser "$REASONING_PARSER")
+[ -n "${TOOL_PARSER:-}" ] && ARGS+=(--enable-auto-tool-choice --tool-call-parser "$TOOL_PARSER")
 
 echo "+ vllm serve ${ARGS[*]} ${EXTRA:-}"
 exec python3 -m vllm.entrypoints.openai.api_server "${ARGS[@]}" ${EXTRA:-}
