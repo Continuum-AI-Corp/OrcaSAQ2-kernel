@@ -28,7 +28,7 @@ class Int8EmbeddingTable(nn.Module):
     def __init__(self, qweight: torch.Tensor, scales: torch.Tensor, out_dtype: torch.dtype):
         super().__init__()
         self.register_buffer("qweight", qweight, persistent=False)
-        self.register_buffer("scales", scales.reshape(-1, 1).to(out_dtype), persistent=False)
+        self.register_buffer("scales", scales.reshape(-1, 1), persistent=False)
         self.out_dtype = out_dtype
 
     @property
@@ -39,8 +39,8 @@ class Int8EmbeddingTable(nn.Module):
 
     def forward(self, ids: torch.Tensor) -> torch.Tensor:
         # index directly rather than through F.embedding: the table is int8, and torch.embedding
-        # asks for a float weight.
-        return self.qweight[ids].to(self.out_dtype) * self.scales[ids]
+        # asks for a float weight. Both casts happen on the GATHERED rows, never on the table.
+        return self.qweight[ids].to(self.out_dtype) * self.scales[ids].to(self.out_dtype)
 
 
 def apply():
@@ -68,8 +68,15 @@ def apply():
         if not has_q:
             return orig_load(self, device, **kwargs)
         self.device = device
-        q = stc.get_tensor(qkey, device)
-        s = stc.get_tensor(skey, device, float2half=True, allow_bf16=True)
+        # no_defer is load-bearing. Inside model.load() exllamav3 runs a DEFERRED load: get_tensor
+        # returns an unfilled (zeroed) tensor immediately, queues the read, and fills that same
+        # tensor object later. Anything that copies it in between -- a .to(dtype), a .clone(), a
+        # non-view reshape -- keeps the zeros, and the fill lands somewhere nobody reads. That
+        # failure is silent: the table loads, the model runs, and every token embeds to 0, which
+        # comes out as a stream of "!". Reading eagerly costs a one-off load-time pause and makes
+        # the tensors safe to touch.
+        q = stc.get_tensor(qkey, device, no_defer=True)
+        s = stc.get_tensor(skey, device, allow_bf16=True, no_defer=True)
         self._numel = q.numel()
         self.embedding = Int8EmbeddingTable(q, s, self.out_dtype or torch.half)
         return None
