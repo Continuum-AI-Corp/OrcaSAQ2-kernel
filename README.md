@@ -27,20 +27,43 @@ GGUF would mean re-quantizing with a measurably weaker quantizer.
 
 ## vLLM
 
+Install the plugin into whatever environment already has vLLM, then launch with a preset:
+
 ```bash
-pip install -e .                        # registers via vllm.general_plugins
-set -a; . presets/16gb.env; set +a      # or 16gb-mtp.env / 80gb.env
-bash presets/serve.sh /path/to/checkpoint 8000 orca
+pip install -e .                                   # registers via vllm.general_plugins
+PRESET=16gb bash presets/serve.sh /path/to/checkpoint 8000 orca
 ```
 
-`presets/serve.sh` binds to **127.0.0.1 by default**. vLLM's own default is `0.0.0.0`, which on
+`PRESET` takes `16gb`, `16gb-mtp`, `80gb`, or a path to your own env file. Preset values are
+**defaults** — anything already in your environment wins, so `PRESET=16gb MAXLEN=8192 bash
+presets/serve.sh ...` does what it says. `DRYRUN=1` prints the assembled command and exits,
+which is the quickest way to see what a preset actually does.
+
+The script finds its interpreter in this order: `$PYTHON`, a `.venv-vllm`/`.venv` beside the
+repo, then `python3` on PATH. If the one it picks has no vLLM it says so in one line instead
+of failing somewhere deeper. It also probes for the CUDA toolkit flashinfer needs to JIT
+against, rather than assuming a path.
+
+### Docker
+
+```bash
+bash docker/build.sh
+docker run --gpus all -v /path/to/checkpoint:/model:ro -p 8000:8000 \
+  -e PRESET=16gb -e API_KEY=... orca-exl3-vllm:0.30.0
+```
+
+The entrypoint sets the container defaults (`/model`, `0.0.0.0`) and then execs the same
+`presets/serve.sh`, so every knob behaves identically on both paths and no option can exist on
+one and not the other.
+
+`presets/serve.sh` binds to **127.0.0.1 by default** on a host. vLLM's own default is `0.0.0.0`, which on
 a host with a public IP means an unauthenticated inference endpoint on the open internet the
 moment the server starts. Exposing it is `BIND=0.0.0.0`, and you should set `API_KEY` and a
 firewall whitelist first.
 
 ### Reasoning and tool calling
 
-The presets turn both parsers on:
+All three presets turn both parsers on:
 
 ```
 REASONING_PARSER=qwen3     # -> --reasoning-parser qwen3
@@ -87,10 +110,11 @@ head loads as an independent component with a full cache of its own — so it do
 ## What is in here
 
 ```
-orca_exl3/    vLLM plugin (pip installable)
-patches/      exllamav3 int8-embedding patch
-presets/      launch configs, every value measured
-docker/       serving image
+orca_exl3/         vLLM plugin (pip installable)
+patches/           exllamav3 int8-embedding patch
+presets/serve.sh   the launcher -- the only place arguments are built
+presets/*.env      launch configs, every value measured
+docker/            serving image; its entrypoint execs presets/serve.sh
 ```
 
 ## License

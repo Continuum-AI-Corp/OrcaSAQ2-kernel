@@ -46,13 +46,20 @@ except subprocess.CalledProcessError:
     print(f"WARNING: no {spec}; leaving the image's own toolkit in place", flush=True)
 PY
 
-COPY plugins/vllm-exl3 /opt/orca-exl3
+# The plugin, installed so vLLM discovers it through the vllm.general_plugins entry point.
+# pyproject declares readme = "README.md", so that file has to come along or the build fails.
+COPY pyproject.toml README.md /opt/orca-exl3/
+COPY orca_exl3 /opt/orca-exl3/orca_exl3
 RUN python3 -m pip install --no-cache-dir /opt/orca-exl3 && rm -rf /opt/orca-exl3/*.egg-info
 
-# CUDA_HOME is set at runtime by the entrypoint, which locates whichever toolkit is present.
+# The presets and the launcher, so the container and the host build arguments from the same
+# script rather than from two copies that drift.
+COPY presets /opt/orca-exl3/presets
+
+# CUDA_HOME is set at runtime by serve.sh, which locates whichever toolkit is present.
 ENV VLLM_USE_FLASHINFER_SAMPLER=0
 COPY docker/entrypoint.sh /usr/local/bin/serve-exl3
-RUN chmod +x /usr/local/bin/serve-exl3
+RUN chmod +x /usr/local/bin/serve-exl3 /opt/orca-exl3/presets/serve.sh
 
 EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/serve-exl3"]
