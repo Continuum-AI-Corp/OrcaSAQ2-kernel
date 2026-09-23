@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orca-exl3"
+version = "0.1.0"
+description = "Serve QTIP/EXL3 trellis-quantized checkpoints: vLLM plugin, exllamav3 loader patch, tuned presets"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+readme = "README.md"
+
+[project.entry-points."vllm.general_plugins"]
+orca_exl3 = "orca_exl3:register"
+
+[tool.setuptools]
+packages = ["orca_exl3"]
