@@ -15,8 +15,8 @@ the surrounding masking logic changes.
 The scale is applied to the GATHERED rows, not to the table. Dequantizing the table at load
 would hand the 1.27 GB straight back; the gather output is [tokens, hidden], which is nothing.
 
-    python patches/int8_embedding.py --check     # verify it applies to the installed exllamav3
-    import orca_exl3.patches.int8_embedding as p; p.apply()   # or call it from your own loader
+    python -m orcasaq2.patches.int8_embedding --check   # verify it applies to the installed exllamav3
+    from orcasaq2.patches import int8_embedding; int8_embedding.apply()   # before Config.from_directory
 """
 import torch
 from torch import nn

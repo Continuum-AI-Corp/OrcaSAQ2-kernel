@@ -3,15 +3,21 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "orca-exl3"
+name = "orcasaq2-kernel"
 version = "0.1.0"
 description = "Serve QTIP/EXL3 trellis-quantized checkpoints: vLLM plugin, exllamav3 loader patch, tuned presets"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 readme = "README.md"
+# torch is intentionally not pinned here: it must be whatever your vLLM or exllamav3 was built
+# against. The trellis kernels come from exllamav3, whose wheels are built per torch and CUDA
+# major version and are published as release assets, not on PyPI -- see the README for picking
+# one. Declaring it as a dependency would only produce a resolver error that hides the real
+# instruction.
+dependencies = []
 
 [project.entry-points."vllm.general_plugins"]
-orca_exl3 = "orca_exl3:register"
+orcasaq2 = "orcasaq2:register"
 
 [tool.setuptools]
-packages = ["orca_exl3"]
+packages = ["orcasaq2", "orcasaq2.patches"]

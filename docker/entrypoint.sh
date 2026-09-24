@@ -32,4 +32,4 @@ export MODEL=${MODEL:-/model} SERVED_NAME=${SERVED_NAME:-exl3} PORT=${PORT:-8000
 
 [ -d "$MODEL" ] || { echo "ERROR: no checkpoint at $MODEL -- mount one with -v /host/pack:/model:ro" >&2; exit 2; }
 
-exec /opt/orca-exl3/presets/serve.sh "$MODEL" "$PORT" "$SERVED_NAME"
+exec /opt/orcasaq2/presets/serve.sh "$MODEL" "$PORT" "$SERVED_NAME"

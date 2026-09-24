@@ -49,7 +49,7 @@ against, rather than assuming a path.
 ```bash
 bash docker/build.sh
 docker run --gpus all -v /path/to/checkpoint:/model:ro -p 8000:8000 \
-  -e PRESET=16gb -e API_KEY=... orca-exl3-vllm:0.30.0
+  -e PRESET=16gb -e API_KEY=... orcasaq2-vllm:0.30.0
 ```
 
 The entrypoint sets the container defaults (`/model`, `0.0.0.0`) and then execs the same
@@ -110,7 +110,7 @@ head loads as an independent component with a full cache of its own — so it do
 ## What is in here
 
 ```
-orca_exl3/         vLLM plugin (pip installable)
+orcasaq2/         vLLM plugin (pip installable)
 patches/           exllamav3 int8-embedding patch
 presets/serve.sh   the launcher -- the only place arguments are built
 presets/*.env      launch configs, every value measured

@@ -65,7 +65,25 @@ def register():
     from vllm.logger import init_logger
     from vllm.model_executor.layers.quantization import register_quantization_config
 
-    logger = init_logger("vllm.orca_exl3")
+    logger = init_logger("vllm.orcasaq2")
+
+    # Fail here, not in the middle of a forward pass. The trellis kernels live in the
+    # exllamav3 extension, which every GEMM reaches for lazily; without it the first
+    # request dies with a bare ModuleNotFoundError from inside a custom op, hours after
+    # anyone could have acted on it.
+    try:
+        from exllamav3.ext import exllamav3_ext  # noqa: F401
+    except Exception as e:
+        raise RuntimeError(
+            "orcasaq2 needs the exllamav3 CUDA extension, and importing it failed: "
+            f"{type(e).__name__}: {e}\n"
+            "It is not on PyPI -- the wheel is ABI-linked to both torch and the CUDA major "
+            "version, so pick the release asset matching this environment:\n"
+            "  python -c \"import torch; print(torch.__version__, torch.version.cuda)\"\n"
+            "  https://github.com/turboderp-org/exllamav3/releases  "
+            "(cu128.* for CUDA 12.x, cu132.* for CUDA 13.x)"
+        ) from e
+
     from .config import Exl3Config  # noqa: F401  (imports register the class)
 
     try:
@@ -73,7 +91,7 @@ def register():
     except ValueError:
         return  # already registered in this process
     _patch_embedding_layers(logger)
-    logger.info("orca_exl3 armed: quant_method 'exl3' is now loadable")
+    logger.info("orcasaq2 armed: quant_method 'exl3' is now loadable")
 
 
 def _patch_embedding_layers(logger):
@@ -132,4 +150,4 @@ def _patch_embedding_layers(logger):
 
         cls.__init__ = make(cls.__init__)
     vpe.VocabParallelEmbedding._orca_patched = True
-    logger.info("orca_exl3: embed_tokens / lm_head will receive the EXL3 quant config")
+    logger.info("orcasaq2: embed_tokens / lm_head will receive the EXL3 quant config")

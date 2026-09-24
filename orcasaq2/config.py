@@ -12,7 +12,7 @@ from vllm.model_executor.layers.quantization.base_config import (
 from vllm.model_executor.parameter import BasevLLMParameter
 
 
-from .ops import GEMM_MAX_ROWS as _GEMM_MAX_ROWS, exl3_K  # noqa: F401  (also registers orca_exl3::shard_gemm)
+from .ops import GEMM_MAX_ROWS as _GEMM_MAX_ROWS, exl3_K  # noqa: F401  (also registers orcasaq2::shard_gemm)
 
 logger = init_logger(__name__)
 
@@ -172,7 +172,7 @@ class Exl3LinearMethod(LinearMethodBase):
                        input_size, output_size, params_dtype, **extra_weight_attrs):
         if input_size != input_size_per_partition or sum(output_partition_sizes) != output_size:
             raise NotImplementedError(
-                "orca_exl3 does not implement tensor parallelism yet; serve with -tp 1 "
+                "orcasaq2 does not implement tensor parallelism yet; serve with -tp 1 "
                 "rather than silently producing wrong numbers"
             )
 
@@ -237,8 +237,8 @@ class Exl3LinearMethod(LinearMethodBase):
         for s in layer.exl3_shards:
             # One custom op per shard. The extension calls themselves are invisible to Dynamo
             # (raw pybind11, no source file), so calling them here directly makes vLLM's
-            # torch.compile fail the engine at startup -- see orca_exl3/ops.py.
-            outs.append(torch.ops.orca_exl3.shard_gemm(
+            # torch.compile fail the engine at startup -- see orcasaq2/ops.py.
+            outs.append(torch.ops.orcasaq2.shard_gemm(
                 xf, s["trellis"], s["suh"], s["svh"], s["oc"], float(s["K"]), s["mcg"], s["mul1"]))
         out = (outs[0] if len(outs) == 1 else torch.cat(outs, dim=-1)).to(x.dtype)
         out = out.reshape(*x.shape[:-1], out.shape[-1])

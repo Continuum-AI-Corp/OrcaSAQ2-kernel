@@ -34,7 +34,7 @@ def exl3_K(trellis: Tensor):
     return int(k) if float(k).is_integer() else k
 
 
-@torch.library.custom_op("orca_exl3::shard_gemm", mutates_args=())
+@torch.library.custom_op("orcasaq2::shard_gemm", mutates_args=())
 def shard_gemm(x: Tensor, trellis: Tensor, suh: Tensor, svh: Tensor,
                oc: int, k: float, mcg: bool, mul1: bool) -> Tensor:
     # k is declared float because the mul1 half rates are 1.5/2.5/3.5; the extension takes
