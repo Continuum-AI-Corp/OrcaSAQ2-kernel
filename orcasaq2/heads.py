@@ -44,6 +44,7 @@ class Exl3EmbeddingMethod(QuantizeMethodBase):
                    torch.device("cuda", torch.cuda.current_device()))
         for p in ("qweight", "scales", "weight"):
             if hasattr(layer, p):
+                getattr(layer, p).shards.clear()   # release the mmap views (see config.py)
                 delattr(layer, p)
         if q is None:
             if w is None:

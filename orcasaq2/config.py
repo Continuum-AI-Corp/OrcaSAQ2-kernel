@@ -198,6 +198,9 @@ class Exl3LinearMethod(LinearMethodBase):
         def finish():
             for p in ("trellis", "suh", "svh", "mcg", "mul1", "weight"):
                 if hasattr(layer, p):
+                    # the CPU tensors in .shards are views of the safetensors mmap; emptying the dict
+                    # lets the mapping go, otherwise the whole checkpoint stays resident in host RAM
+                    getattr(layer, p).shards.clear()
                     delattr(layer, p)
         if not tr:
             # unquantized projection (exllamav3 leaves in_proj_a/b and anything at 16 bits
